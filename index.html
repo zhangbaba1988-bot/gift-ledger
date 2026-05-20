@@ -119,11 +119,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
 <div class="page" id="page-book">
   <div style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0">
     <button class="t-btn" style="width:auto;padding:8px 16px;background:var(--pink);color:white;border-radius:10px" onclick="goHome()">← 返回</button>
-    <span style="font-size:18px;font-weight:700" id="bookTitle">礼薄</span>
+    <span style="font-size:18px;font-weight:700;flex:1" id="bookTitle">礼薄</span>
     <span style="font-size:13px;color:var(--text-dim)" id="bookStats"></span>
+    <button class="t-btn t-btn-outline" style="width:auto;padding:8px 14px;font-size:13px" id="manageBtn" onclick="toggleManage()">⚙️ 管理</button>
   </div>
   <div class="page-body">
     <button class="t-btn t-btn-pink" onclick="openAddModal()" style="margin-bottom:12px">➕ 记一笔礼金</button>
+    <div id="batchBar" style="display:none;margin-bottom:10px;gap:8px">
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="selectAll()">☑️ 全选</button>
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="deselectAll()">⬜ 取消全选</button>
+      <button class="t-btn" style="flex:1;padding:12px;font-size:14px;background:var(--danger,var(--pink));color:white" onclick="batchDelete()">🗑️ 删除选中</button>
+    </div>
     <div id="ledgerList"></div>
   </div>
 </div>
@@ -260,28 +266,86 @@ function goHome(){
 }
 
 // ====== 礼金列表 ======
+let isManageMode = false;
+
 function renderLedger(){
   const b = books.find(x=>x.id===currentBookId);
   if(!b)return;
   const list = document.getElementById('ledgerList');
   const total = b.records.reduce((s,r)=>s+parseFloat(r.amount),0);
   document.getElementById('bookStats').textContent = b.records.length+'笔 · ¥'+total.toFixed(0);
+  document.getElementById('manageBtn').textContent = isManageMode?'✅ 完成':'⚙️ 管理';
+  document.getElementById('batchBar').style.display = isManageMode?'flex':'none';
   if(b.records.length===0){
     list.innerHTML = `<div class="empty-state"><div class="e-icon">🧧</div><p>${b.name}还没有记录</p><p class="sub">点击上面按钮记下第一笔</p></div>`;
     return;
   }
   list.innerHTML = b.records.map((r,i)=>{
     const icons = ['🎉','🎊','🧧','💝','🌸','🎀','🧨','🍾'];
+    const checkbox = isManageMode
+      ? `<span style="font-size:22px;cursor:pointer;margin-right:4px" onclick="toggleSelect(${i})">${window._selected&&window._selected[i]?'✅':'⬜'}</span>`
+      : '';
+    const delBtn = isManageMode
+      ? `<button class="record-del" onclick="singleDelGift(${i})" style="color:var(--pink)">🗑️</button>`
+      : '';
     return `<div class="record-card">
+      ${checkbox}
       <div class="record-avatar" style="background:rgba(231,84,128,.1)">${icons[i%icons.length]}</div>
       <div class="record-info">
         <div class="record-name">${r.name}</div>
         <div class="record-meta">${r.note||''} ${r.time?'· '+r.time:''}</div>
       </div>
       <div class="record-amount">¥${parseFloat(r.amount).toFixed(0)}</div>
-      <button class="record-del" onclick="delGift(${i})">✕</button>
+      ${delBtn}
     </div>`;
   }).join('');
+}
+
+function toggleManage(){
+  isManageMode = !isManageMode;
+  window._selected = {};
+  renderLedger();
+}
+
+function toggleSelect(i){
+  if(!window._selected)window._selected={};
+  window._selected[i] = !window._selected[i];
+  renderLedger();
+}
+
+function selectAll(){
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  window._selected = {};
+  b.records.forEach((_,i)=>{window._selected[i]=true});
+  renderLedger();
+}
+
+function deselectAll(){
+  window._selected = {};
+  renderLedger();
+}
+
+function batchDelete(){
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b||!window._selected)return;
+  const ids = Object.keys(window._selected).filter(k=>window._selected[k]).map(Number);
+  if(ids.length===0){showToast('请先勾选要删除的记录');return}
+  if(!confirm('确定删除选中的 '+ids.length+' 条记录？'))return;
+  ids.sort((a,b)=>b-a).forEach(i=>b.records.splice(i,1));
+  window._selected = {};
+  saveBooks(); renderLedger();
+  showToast('✅ 已删除 '+ids.length+' 条');
+}
+
+function singleDelGift(i){
+  if(!confirm('删除这条记录？'))return;
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  b.records.splice(i,1);
+  window._selected = {};
+  saveBooks(); renderLedger();
+  showToast('已删除');
 }
 
 function openAddModal(){
