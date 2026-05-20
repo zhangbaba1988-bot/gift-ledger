@@ -101,6 +101,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
     <button class="nav-btn" onclick="showView('stats')">📊 总统计</button>
   </div>
   <div class="page-body" id="homeBody"></div>
+  <!-- ====== 备份模块 ====== -->
+  <div style="padding:12px 16px 20px;flex-shrink:0">
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px" onclick="exportData()">📤 导出备份</button>
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px" onclick="document.getElementById('importFile').click()">📥 导入恢复</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);text-align:center;line-height:1.6">
+      💡 备份文件存在手机里，删 App 前先导出<br>
+      ⚠️ 换手机或重装后点「导入恢复」即可
+    </div>
+  </div>
 </div>
 
 <!-- ====== 礼薄详情页 ====== -->
@@ -366,15 +378,55 @@ function renderStats(){
   `;
 }
 
-// ====== 初始化 ======
-loadData();
-document.getElementById('statsDate').textContent = new Date().toLocaleDateString('zh-CN');
-renderHome();
+// ====== 导出/导入备份 ======
+function exportData(){
+  const data = JSON.stringify(books, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toLocaleDateString('zh-CN').replace(/\\//g,'-');
+  a.download = '礼薄备份_'+date+'.json';
+  a.href = url;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ 备份已导出，请保存好文件');
+}
 
+function importData(event){
+  const file = event.target.files[0];
+  if(!file)return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = JSON.parse(e.target.result);
+      if(Array.isArray(data) && data.length>0 && data[0].name && data[0].records!==undefined){
+        if(confirm('找到 '+data.length+' 本礼薄。\\n点「确定」替换当前数据\\n点「取消」取消导入')){
+          books = data;
+          saveBooks();
+          renderHome();
+          showToast('✅ 已恢复 '+books.length+' 本礼薄');
+        }
+      } else {
+        showToast('❌ 文件格式不对');
+      }
+    } catch(err){
+      showToast('❌ 文件解析失败');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ====== Toast ======
 function showToast(m){
   const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2000);
 }
+
+// ====== 初始化 ======
+loadData();
+document.getElementById('statsDate').textContent = new Date().toLocaleDateString('zh-CN');
+renderHome();
 </script>
 </body>
 </html>
