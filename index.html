@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#e75480">
+<title>礼薄 · 收礼记账</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--pink:#e75480;--gold:#d4a853;--bg:#fef6f6;--card:#fff;--text:#2d2d2d;--text-dim:#8e8e93;--radius:16px;--shadow:0 2px 12px rgba(0,0,0,.06)}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.app{height:100vh;display:flex;flex-direction:column;max-width:500px;margin:0 auto;position:relative}
+
+/* 头部 */
+.header{background:linear-gradient(135deg,var(--pink),#c0397a);color:white;padding:20px 16px 24px;flex-shrink:0}
+.header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.header h1{font-size:24px;display:flex;align-items:center;gap:8px;letter-spacing:4px}
+.summary{display:flex;gap:12px}
+.summary-item{flex:1;background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border-radius:14px;padding:12px;text-align:center}
+.summary-num{font-size:28px;font-weight:800}
+.summary-label{font-size:12px;opacity:.8;margin-top:2px}
+
+/* 表单 */
+.t-input{width:100%;padding:14px;border-radius:12px;border:1px solid #eee;background:var(--card);color:var(--text);font-size:16px;outline:none;font-family:inherit;transition:.2s}
+.t-input:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(231,84,128,.1)}
+.t-label{font-size:13px;color:var(--text-dim);margin-bottom:4px;margin-top:10px}
+.t-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:14px 24px;border-radius:14px;border:none;font-size:16px;font-weight:600;cursor:pointer;transition:.2s}
+.t-btn:active{transform:scale(.97)}
+.t-btn-pink{background:var(--pink);color:white;width:100%}
+.t-btn-gold{background:var(--gold);color:white;width:100%}
+.t-btn-outline{background:transparent;border:1px solid #ddd;color:var(--text)}
+.btn-row{display:flex;gap:8px}
+.btn-row .t-btn{flex:1}
+
+/* 卡片列表 */
+.record-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.record-avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.record-info{flex:1;min-width:0}
+.record-name{font-size:16px;font-weight:600}
+.record-meta{font-size:12px;color:var(--text-dim);margin-top:2px}
+.record-amount{font-size:18px;font-weight:700;color:var(--pink);white-space:nowrap}
+.record-del{background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:4px}
+.record-del:active{transform:scale(.9)}
+
+/* 空状态 */
+.empty-state{text-align:center;padding:50px 0;color:var(--text-dim)}
+.empty-state .e-icon{font-size:64px;margin-bottom:12px}
+.empty-state p{font-size:15px}
+.empty-state .sub{font-size:13px;margin-top:4px;opacity:.7}
+
+/* 礼薄卡片（首页） */
+.book-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 16px}
+.book-card{background:var(--card);border-radius:16px;padding:24px 16px;text-align:center;box-shadow:var(--shadow);cursor:pointer;transition:.2s}
+.book-card:active{transform:scale(.97)}
+.book-icon{font-size:48px;margin-bottom:8px}
+.book-name{font-size:17px;font-weight:600}
+.book-count{font-size:12px;color:var(--text-dim);margin-top:4px}
+.book-add{background:var(--card);border:2px dashed #ddd;border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;transition:.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-dim)}
+.book-add:active{background:#f5f5f5}
+.book-add span{font-size:36px}
+.page-body{flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch}
+
+/* Modal */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}
+.modal-sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-width:500px;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0));animation:slideUp .35s}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 20px}
+.modal h3{font-size:20px;margin-bottom:4px}
+.modal .sub{font-size:13px;color:var(--text-dim);margin-bottom:16px}
+
+/* Toast */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:white;padding:12px 24px;border-radius:12px;font-size:14px;z-index:999;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* 顶部导航条 */
+.nav{display:flex;background:var(--card);border-radius:14px;margin:-12px 16px 0;padding:4px;box-shadow:var(--shadow);flex-shrink:0;position:relative;z-index:2}
+.nav-btn{flex:1;padding:10px;border-radius:12px;border:none;background:transparent;font-size:14px;font-weight:500;cursor:pointer;transition:.2s;color:var(--text-dim)}
+.nav-btn.active{background:var(--pink);color:white;font-weight:600}
+.page{display:none;flex-direction:column;flex:1;overflow:hidden}
+.page.show{display:flex}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ====== 首页 ====== -->
+<div class="page show" id="page-home">
+  <div class="header">
+    <div class="header-top"><h1>📖 礼  薄</h1><span style="font-size:13px;opacity:.8" id="statsDate"></span></div>
+    <div class="summary">
+      <div class="summary-item"><div class="summary-num" id="totalBooks">0</div><div class="summary-label">礼薄数量</div></div>
+      <div class="summary-item"><div class="summary-num" id="totalGifts">0</div><div class="summary-label">总笔数</div></div>
+      <div class="summary-item"><div class="summary-num" id="totalAmount">¥0</div><div class="summary-label">总金额</div></div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showView('home')">📚 我的礼薄</button>
+    <button class="nav-btn" onclick="showView('stats')">📊 总统计</button>
+  </div>
+  <div class="page-body" id="homeBody"></div>
+</div>
+
+<!-- ====== 礼薄详情页 ====== -->
+<div class="page" id="page-book">
+  <div style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <button class="t-btn" style="width:auto;padding:8px 16px;background:var(--pink);color:white;border-radius:10px" onclick="goHome()">← 返回</button>
+    <span style="font-size:18px;font-weight:700" id="bookTitle">礼薄</span>
+    <span style="font-size:13px;color:var(--text-dim)" id="bookStats"></span>
+  </div>
+  <div class="page-body">
+    <button class="t-btn t-btn-pink" onclick="openAddModal()" style="margin-bottom:12px">➕ 记一笔礼金</button>
+    <div id="ledgerList"></div>
+  </div>
+</div>
+
+<!-- ====== 统计页 ====== -->
+<div class="page" id="page-stats">
+  <div style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <span style="font-size:18px;font-weight:700">📊 全部礼薄统计</span>
+  </div>
+  <div class="page-body" id="statsBody"></div>
+</div>
+
+<!-- ====== 添加礼金弹窗 ====== -->
+<div class="modal" id="addModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>🧧 记一笔</h3>
+    <div class="sub">记录谁给了多少钱</div>
+    <div class="t-label">姓名</div>
+    <input class="t-input" id="giftName" placeholder="如：张三" style="margin-bottom:6px">
+    <div class="t-label">金额 (¥)</div>
+    <input class="t-input" id="giftAmount" type="number" placeholder="如：888" style="margin-bottom:6px">
+    <div class="t-label">备注 (可选)</div>
+    <input class="t-input" id="giftNote" placeholder="如：同事 / 朋友" style="margin-bottom:16px">
+    <button class="t-btn t-btn-pink" onclick="saveGift()">💾 保存</button>
+  </div>
+</div>
+
+<!-- ====== 新建礼薄弹窗 ====== -->
+<div class="modal" id="addBookModal" onclick="if(event.target===this)closeBookModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>📖 新建礼薄</h3>
+    <div class="sub">给不同的场合建一本礼薄</div>
+    <div class="t-label">场合名称</div>
+    <input class="t-input" id="bookName" placeholder="如：儿子满月酒" style="margin-bottom:6px">
+    <div class="t-label">封面图标 (选填)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="iconPicker"></div>
+    <button class="t-btn t-btn-pink" onclick="saveBook()">💾 创建礼薄</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+const ICONS = ['💒','🎂','🧧','🎉','🏮','🌸','🍼','🎊','🎀','🏠','🍷','🎁'];
+
+const DB = {
+  get(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v))}
+};
+
+let books = []; // [{id,name,icon,records:[{name,amount,note,time}]}]
+let currentBookId = null;
+
+function loadData(){
+  books = DB.get('gift_books') || [];
+  if(books.length===0){
+    // 默认建一本婚礼礼薄
+    books = [{id:'book_1',name:'婚礼礼薄',icon:'💒',records:[]}];
+    saveBooks();
+  }
+}
+
+function saveBooks(){DB.set('gift_books',books)}
+
+// ====== 首页 ======
+function renderHome(){
+  document.getElementById('statsDate').textContent = new Date().toLocaleDateString('zh-CN');
+  const totalGifts = books.reduce((s,b)=>s+b.records.length,0);
+  const totalAmount = books.reduce((s,b)=>s+b.records.reduce((ss,r)=>ss+parseFloat(r.amount),0),0);
+  document.getElementById('totalBooks').textContent = books.length;
+  document.getElementById('totalGifts').textContent = totalGifts;
+  document.getElementById('totalAmount').textContent = '¥'+totalAmount.toFixed(0);
+
+  let html = '<div class="book-grid">';
+  books.forEach(b => {
+    const cnt = b.records.length;
+    const amt = b.records.reduce((s,r)=>s+parseFloat(r.amount),0).toFixed(0);
+    html += `<div class="book-card" onclick="openBook('${b.id}')">
+      <div class="book-icon">${b.icon}</div>
+      <div class="book-name">${b.name}</div>
+      <div class="book-count">${cnt}笔 · ¥${amt}</div>
+    </div>`;
+  });
+  html += `<div class="book-add" onclick="openAddBookModal()">
+    <span>➕</span>
+    <span style="font-size:13px">新建礼薄</span>
+  </div></div>`;
+  document.getElementById('homeBody').innerHTML = html;
+}
+
+// ====== 新建礼薄 ======
+function openAddBookModal(){
+  document.getElementById('addBookModal').classList.add('show');
+  document.getElementById('bookName').value = '';
+  const picker = document.getElementById('iconPicker');
+  picker.innerHTML = ICONS.map(ico =>
+    `<span style="font-size:32px;cursor:pointer;padding:4px;border-radius:8px;transition:.2s" onclick="selectIcon('${ico}')" class="ico-opt">${ico}</span>`
+  ).join('');
+  window.selectedIcon = '💒';
+}
+function selectIcon(ico){
+  document.querySelectorAll('.ico-opt').forEach(el=>el.style.background='');
+  event.target.style.background='rgba(231,84,128,.15)';
+  window.selectedIcon = ico;
+}
+function saveBook(){
+  const name = document.getElementById('bookName').value.trim();
+  if(!name){showToast('请输入名称');return}
+  books.push({id:'book_'+(books.length+1)+'_'+Date.now(),name,icon:window.selectedIcon||'📖',records:[]});
+  saveBooks(); renderHome(); closeBookModal();
+  showToast('✅ 已创建「'+name+'」');
+}
+function closeBookModal(){document.getElementById('addBookModal').classList.remove('show')}
+
+// ====== 打开礼薄 ======
+function openBook(id){
+  currentBookId = id;
+  const b = books.find(x=>x.id===id);
+  if(!b)return;
+  document.getElementById('page-home').classList.remove('show');
+  document.getElementById('page-book').classList.add('show');
+  document.getElementById('bookTitle').textContent = b.icon+' '+b.name;
+  renderLedger();
+}
+
+function goHome(){
+  currentBookId = null;
+  document.getElementById('page-book').classList.remove('show');
+  document.getElementById('page-home').classList.add('show');
+  renderHome();
+}
+
+// ====== 礼金列表 ======
+function renderLedger(){
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  const list = document.getElementById('ledgerList');
+  const total = b.records.reduce((s,r)=>s+parseFloat(r.amount),0);
+  document.getElementById('bookStats').textContent = b.records.length+'笔 · ¥'+total.toFixed(0);
+  if(b.records.length===0){
+    list.innerHTML = `<div class="empty-state"><div class="e-icon">🧧</div><p>${b.name}还没有记录</p><p class="sub">点击上面按钮记下第一笔</p></div>`;
+    return;
+  }
+  list.innerHTML = b.records.map((r,i)=>{
+    const icons = ['🎉','🎊','🧧','💝','🌸','🎀','🧨','🍾'];
+    return `<div class="record-card">
+      <div class="record-avatar" style="background:rgba(231,84,128,.1)">${icons[i%icons.length]}</div>
+      <div class="record-info">
+        <div class="record-name">${r.name}</div>
+        <div class="record-meta">${r.note||''} ${r.time?'· '+r.time:''}</div>
+      </div>
+      <div class="record-amount">¥${parseFloat(r.amount).toFixed(0)}</div>
+      <button class="record-del" onclick="delGift(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function openAddModal(){
+  document.getElementById('addModal').classList.add('show');
+  document.getElementById('giftName').value='';
+  document.getElementById('giftAmount').value='';
+  document.getElementById('giftNote').value='';
+}
+function closeModal(){document.getElementById('addModal').classList.remove('show')}
+
+function saveGift(){
+  const name = document.getElementById('giftName').value.trim();
+  const amount = document.getElementById('giftAmount').value;
+  const note = document.getElementById('giftNote').value.trim();
+  if(!name){showToast('请输入姓名');return}
+  if(!amount||isNaN(amount)){showToast('请输入金额');return}
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  b.records.unshift({name,amount:parseFloat(amount).toFixed(0),note:note||'',time:new Date().toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})});
+  saveBooks(); renderLedger(); closeModal();
+  showToast('✅ 已记录 '+name+' ¥'+amount);
+}
+
+function delGift(i){
+  if(!confirm('删除这条记录？'))return;
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  b.records.splice(i,1); saveBooks(); renderLedger();
+  showToast('已删除');
+}
+
+// ====== 视图切换 ======
+function showView(v){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  if(v==='home')renderHome();
+  if(v==='stats')renderStats();
+}
+
+// ====== 统计 ======
+function renderStats(){
+  const all = books.flatMap(b=>b.records.map(r=>({...r,bookName:b.name,bookIcon:b.icon})));
+  const total = all.reduce((s,r)=>s+parseFloat(r.amount),0);
+  if(all.length===0){
+    document.getElementById('statsBody').innerHTML = `<div class="empty-state"><div class="e-icon">📊</div><p>还没有数据</p></div>`;
+    return;
+  }
+  const top10 = all.sort((a,b)=>b.amount-a.amount).slice(0,10);
+  const sorted = [...all].sort((a,b)=>b.amount-a.amount);
+  const max = sorted[0];
+  const min = sorted[sorted.length-1];
+  const avg = total/all.length;
+  document.getElementById('statsBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="record-card" style="flex-direction:column;padding:16px;text-align:center">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">全部礼薄</div>
+        <div style="font-size:20px;font-weight:700">${books.length}本</div>
+      </div>
+      <div class="record-card" style="flex-direction:column;padding:16px;text-align:center">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">总笔数</div>
+        <div style="font-size:20px;font-weight:700">${all.length}笔</div>
+      </div>
+    </div>
+    <div class="record-card" style="flex-direction:column;padding:16px;margin-bottom:12px;text-align:center">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">总额</div>
+      <div style="font-size:32px;font-weight:800;color:var(--pink)">¥${total.toFixed(0)}</div>
+    </div>
+    <div class="record-card" style="flex-direction:column;padding:16px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">🥇 最高单笔</div>
+      <div style="display:flex;justify-content:space-between;font-size:16px">
+        <span>${max.bookIcon} ${max.name}</span>
+        <span style="color:var(--pink);font-weight:700">¥${parseFloat(max.amount).toFixed(0)}</span>
+      </div>
+    </div>
+    <div class="record-card" style="flex-direction:column;padding:16px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">🏆 礼金排行 TOP 10</div>
+      ${top10.map((r,i)=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px">
+          <span>${i+1}. ${r.bookIcon} ${r.name}</span>
+          <span style="color:var(--pink);font-weight:600">¥${parseFloat(r.amount).toFixed(0)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="record-card" style="flex-direction:column;padding:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">📖 各礼薄汇总</div>
+      ${books.map(b=>{
+        const amt = b.records.reduce((s,r)=>s+parseFloat(r.amount),0);
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px">
+          <span>${b.icon} ${b.name}</span>
+          <span>${b.records.length}笔 · <span style="font-weight:600">¥${amt.toFixed(0)}</span></span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ====== 初始化 ======
+loadData();
+document.getElementById('statsDate').textContent = new Date().toLocaleDateString('zh-CN');
+renderHome();
+
+function showToast(m){
+  const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+</script>
+</body>
+</html>
