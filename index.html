@@ -81,6 +81,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
 .nav-btn.active{background:var(--pink);color:white;font-weight:600}
 .page{display:none;flex-direction:column;flex:1;overflow:hidden}
 .page.show{display:flex}
+
+/* 搜索框 */
+.search-wrap{position:relative;margin:0 16px 6px;flex-shrink:0}
+.search-wrap .t-input{padding-right:40px}
+.search-clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:20px;color:var(--text-dim);cursor:pointer;padding:0;line-height:1}
+.search-result-hint{font-size:13px;color:var(--text-dim);padding:0 0 8px}
+.book-tag{display:inline-block;font-size:11px;background:rgba(231,84,128,.1);color:var(--pink);padding:1px 8px;border-radius:10px;vertical-align:middle;margin-left:4px}
+
+/* 性别选择 */
+.gender-row{display:flex;gap:10px;margin-bottom:14px}
+.gender-opt{flex:1;padding:12px;border-radius:12px;border:2px solid #eee;text-align:center;cursor:pointer;font-size:18px;transition:.2s;background:var(--card)}
+.gender-opt.sel{border-color:var(--pink);background:rgba(231,84,128,.08)}
+.avatar-male{background:rgba(66,133,244,.15)}
+.avatar-female{background:rgba(231,84,128,.15)}
+
 </style>
 </head>
 <body>
@@ -95,6 +110,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
       <div class="summary-item"><div class="summary-num" id="totalGifts">0</div><div class="summary-label">总笔数</div></div>
       <div class="summary-item"><div class="summary-num" id="totalAmount">¥0</div><div class="summary-label">总金额</div></div>
     </div>
+  </div>
+  <div class="search-wrap" id="searchWrap">
+    <input class="t-input" id="searchInput" type="text" placeholder="🔍 搜索所有礼薄中的姓名..." oninput="handleSearch()">
+    <button class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none">✕</button>
   </div>
   <div class="nav">
     <button class="nav-btn active" onclick="showView('home')">📚 我的礼薄</button>
@@ -125,10 +144,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
   </div>
   <div class="page-body">
     <button class="t-btn t-btn-pink" onclick="openAddModal()" style="margin-bottom:12px">➕ 记一笔礼金</button>
-    <div id="batchBar" style="display:none;margin-bottom:10px;gap:8px">
-      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="selectAll()">☑️ 全选</button>
-      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="deselectAll()">⬜ 取消全选</button>
-      <button class="t-btn" style="flex:1;padding:12px;font-size:14px;background:var(--danger,var(--pink));color:white" onclick="batchDelete()">🗑️ 删除选中</button>
+    <div id="batchBar" style="display:none;margin-bottom:10px;gap:8px;flex-direction:column">
+      <button class="t-btn t-btn-outline" style="width:100%;padding:12px;font-size:14px" onclick="openRenameBook()">✏️ 修改礼薄名称</button>
+      <div style="display:flex;gap:8px">
+        <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="selectAll()">☑️ 全选</button>
+        <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="deselectAll()">⬜ 取消全选</button>
+        <button class="t-btn" style="flex:1;padding:12px;font-size:14px;background:var(--danger,var(--pink));color:white" onclick="batchDelete()">🗑️ 删除选中</button>
+      </div>
     </div>
     <div id="ledgerList"></div>
   </div>
@@ -153,8 +175,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
     <div class="t-label">金额 (¥)</div>
     <input class="t-input" id="giftAmount" type="number" placeholder="如：888" style="margin-bottom:6px">
     <div class="t-label">备注 (可选)</div>
-    <input class="t-input" id="giftNote" placeholder="如：同事 / 朋友" style="margin-bottom:16px">
-    <button class="t-btn t-btn-pink" onclick="saveGift()">💾 保存</button>
+    <input class="t-input" id="giftNote" placeholder="如：同事 / 朋友" style="margin-bottom:6px">
+    <div class="t-label">性别</div>
+    <div class="gender-row">
+      <div class="gender-opt sel" id="genderMale" onclick="pickGender('male')">👦 男生</div>
+      <div class="gender-opt" id="genderFemale" onclick="pickGender('female')">👧 女生</div>
+    </div>
+    <button class="t-btn t-btn-pink" onclick="saveGift()" style="margin-top:4px">💾 保存</button>
   </div>
 </div>
 
@@ -172,6 +199,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
   </div>
 </div>
 
+<!-- ====== 修改礼薄名称弹窗 ====== -->
+<div class="modal" id="renameBookModal" onclick="if(event.target===this)closeRenameModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>✏️ 修改礼薄名称</h3>
+    <div class="sub">修改当前礼薄的名称</div>
+    <div class="t-label">新名称</div>
+    <input class="t-input" id="renameBookInput" placeholder="输入新名称" style="margin-bottom:16px">
+    <button class="t-btn t-btn-pink" onclick="saveRenameBook()">💾 保存修改</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 </div>
 
@@ -185,6 +224,56 @@ const DB = {
 
 let books = []; // [{id,name,icon,records:[{name,amount,note,time}]}]
 let currentBookId = null;
+
+let searchMode = false;
+
+// ====== 搜索 ======
+function handleSearch(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  document.getElementById('searchClear').style.display = q ? 'block' : 'none';
+  if(!q){ searchMode=false; renderHome(); return; }
+  searchMode=true;
+  renderSearchResults(q);
+}
+
+function renderSearchResults(q){
+  const results = [];
+  books.forEach(b => {
+    b.records.forEach(r => {
+      if(r.name.toLowerCase().includes(q) || (r.note&&r.note.toLowerCase().includes(q))){
+        results.push({...r, bookName:b.name, bookIcon:b.icon});
+      }
+    });
+  });
+  results.sort((a,b) => b.amount - a.amount);
+
+  const body = document.getElementById('homeBody');
+  if(results.length === 0){
+    body.innerHTML = `<div class="empty-state"><div class="e-icon">🔍</div><p>没找到「${q}」相关记录</p><p class="sub">试试其他关键词</p></div>`;
+    return;
+  }
+
+  body.innerHTML = `<div class="search-result-hint">🔍 找到 <b>${results.length}</b> 条结果</div>`
+    + results.map(r => {
+      const g = r.gender||'male';
+      const cls = g==='female'?'avatar-female':'avatar-male';
+      const ico = g==='female'?'👧':'👦';
+      return `<div class="record-card" style="cursor:default">
+      <div class="record-avatar ${cls}">${ico}</div>
+      <div class="record-info">
+        <div class="record-name">${r.name}<span class="book-tag">${r.bookIcon} ${r.bookName}</span></div>
+        <div class="record-meta">${r.note||''} ${r.time?'· '+r.time:''}</div>
+      </div>
+      <div class="record-amount">¥${parseFloat(r.amount).toFixed(0)}</div>
+    </div>`}).join('');
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  searchMode = false;
+  renderHome();
+}
 
 function loadData(){
   books = DB.get('gift_books') || [];
@@ -281,7 +370,9 @@ function renderLedger(){
     return;
   }
   list.innerHTML = b.records.map((r,i)=>{
-    const icons = ['🎉','🎊','🧧','💝','🌸','🎀','🧨','🍾'];
+    const g = r.gender||'male';
+    const avCls = g==='female'?'avatar-female':'avatar-male';
+    const avIco = g==='female'?'👧':'👦';
     const checkbox = isManageMode
       ? `<span style="font-size:22px;cursor:pointer;margin-right:4px" onclick="toggleSelect(${i})">${window._selected&&window._selected[i]?'✅':'⬜'}</span>`
       : '';
@@ -290,7 +381,7 @@ function renderLedger(){
       : '';
     return `<div class="record-card">
       ${checkbox}
-      <div class="record-avatar" style="background:rgba(231,84,128,.1)">${icons[i%icons.length]}</div>
+      <div class="record-avatar ${avCls}">${avIco}</div>
       <div class="record-info">
         <div class="record-name">${r.name}</div>
         <div class="record-meta">${r.note||''} ${r.time?'· '+r.time:''}</div>
@@ -353,6 +444,13 @@ function openAddModal(){
   document.getElementById('giftName').value='';
   document.getElementById('giftAmount').value='';
   document.getElementById('giftNote').value='';
+  pickGender('male');
+}
+
+function pickGender(g){
+  window._selGender=g;
+  document.getElementById('genderMale').classList.toggle('sel',g==='male');
+  document.getElementById('genderFemale').classList.toggle('sel',g==='female');
 }
 function closeModal(){document.getElementById('addModal').classList.remove('show')}
 
@@ -364,7 +462,7 @@ function saveGift(){
   if(!amount||isNaN(amount)){showToast('请输入金额');return}
   const b = books.find(x=>x.id===currentBookId);
   if(!b)return;
-  b.records.unshift({name,amount:parseFloat(amount).toFixed(0),note:note||'',time:new Date().toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})});
+  b.records.unshift({name,amount:parseFloat(amount).toFixed(0),note:note||'',gender:window._selGender||'male',time:new Date().toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})});
   saveBooks(); renderLedger(); closeModal();
   showToast('✅ 已记录 '+name+' ¥'+amount);
 }
@@ -377,11 +475,34 @@ function delGift(i){
   showToast('已删除');
 }
 
+// ====== 修改礼薄名称 ======
+function openRenameBook(){
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  document.getElementById('renameBookInput').value = b.name;
+  document.getElementById('renameBookModal').classList.add('show');
+}
+function closeRenameModal(){document.getElementById('renameBookModal').classList.remove('show')}
+function saveRenameBook(){
+  const name = document.getElementById('renameBookInput').value.trim();
+  if(!name){showToast('请输入名称');return}
+  const b = books.find(x=>x.id===currentBookId);
+  if(!b)return;
+  b.name = name;
+  saveBooks(); renderLedger(); closeRenameModal();
+  document.getElementById('bookTitle').textContent = b.icon+' '+b.name;
+  showToast('✅ 名称已修改为「'+name+'」');
+}
+
 // ====== 视图切换 ======
 function showView(v){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
-  if(v==='home')renderHome();
+  if(v==='home'){
+    const q = document.getElementById('searchInput').value.trim();
+    if(q){ searchMode=true; renderSearchResults(q.toLowerCase()); }
+    else { searchMode=false; renderHome(); }
+  }
   if(v==='stats')renderStats();
 }
 
