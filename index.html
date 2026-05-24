@@ -139,18 +139,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
   <div style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0">
     <button class="t-btn" style="width:auto;padding:8px 16px;background:var(--pink);color:white;border-radius:10px" onclick="goHome()">← 返回</button>
     <span style="font-size:18px;font-weight:700;flex:1" id="bookTitle">礼薄</span>
+    <button style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 6px" onclick="openRenameBook()" title="修改名称">✏️</button>
+    <span style="font-size:12px;color:var(--text-dim);white-space:nowrap" id="bookDateLabel"></span>
     <span style="font-size:13px;color:var(--text-dim)" id="bookStats"></span>
     <button class="t-btn t-btn-outline" style="width:auto;padding:8px 14px;font-size:13px" id="manageBtn" onclick="toggleManage()">⚙️ 管理</button>
   </div>
   <div class="page-body">
     <button class="t-btn t-btn-pink" onclick="openAddModal()" style="margin-bottom:12px">➕ 记一笔礼金</button>
-    <div id="batchBar" style="display:none;margin-bottom:10px;gap:8px;flex-direction:column">
-      <button class="t-btn t-btn-outline" style="width:100%;padding:12px;font-size:14px" onclick="openRenameBook()">✏️ 修改礼薄名称</button>
-      <div style="display:flex;gap:8px">
-        <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="selectAll()">☑️ 全选</button>
-        <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="deselectAll()">⬜ 取消全选</button>
-        <button class="t-btn" style="flex:1;padding:12px;font-size:14px;background:var(--danger,var(--pink));color:white" onclick="batchDelete()">🗑️ 删除选中</button>
-      </div>
+    <div id="batchBar" style="display:none;margin-bottom:10px;gap:8px">
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="selectAll()">☑️ 全选</button>
+      <button class="t-btn t-btn-outline" style="flex:1;padding:12px;font-size:14px" onclick="deselectAll()">⬜ 取消全选</button>
+      <button class="t-btn" style="flex:1;padding:12px;font-size:14px;background:var(--danger,var(--pink));color:white" onclick="batchDelete()">🗑️ 删除选中</button>
     </div>
     <div id="ledgerList"></div>
   </div>
@@ -194,7 +193,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
     <div class="t-label">场合名称</div>
     <input class="t-input" id="bookName" placeholder="如：儿子满月酒" style="margin-bottom:6px">
     <div class="t-label">封面图标 (选填)</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="iconPicker"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px" id="iconPicker"></div>
+    <div class="t-label">日期 (选填)</div>
+    <input class="t-input" id="bookDate" type="date" style="margin-bottom:16px">
     <button class="t-btn t-btn-pink" onclick="saveBook()">💾 创建礼薄</button>
   </div>
 </div>
@@ -215,7 +216,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
 </div>
 
 <script>
-const ICONS = ['💒','🎂','🧧','🎉','🏮','🌸','🍼','🎊','🎀','🏠','🍷','🎁'];
+const ICONS = ['💒','🎂','🧧','🎉','🏮','🌸','🍼','🎊','🎀','🏠','🍷','🎁','🕯️'];
 
 const DB = {
   get(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}},
@@ -279,7 +280,7 @@ function loadData(){
   books = DB.get('gift_books') || [];
   if(books.length===0){
     // 默认建一本婚礼礼薄
-    books = [{id:'book_1',name:'婚礼礼薄',icon:'💒',records:[]}];
+    books = [{id:'book_1',name:'婚礼礼薄',icon:'💒',date:'',records:[]}];
     saveBooks();
   }
 }
@@ -299,9 +300,11 @@ function renderHome(){
   books.forEach(b => {
     const cnt = b.records.length;
     const amt = b.records.reduce((s,r)=>s+parseFloat(r.amount),0).toFixed(0);
+    const bdate = b.date||'';
     html += `<div class="book-card" onclick="openBook('${b.id}')">
       <div class="book-icon">${b.icon}</div>
       <div class="book-name">${b.name}</div>
+      ${bdate?`<div class="book-count">${bdate}</div>`:''}
       <div class="book-count">${cnt}笔 · ¥${amt}</div>
     </div>`;
   });
@@ -316,6 +319,7 @@ function renderHome(){
 function openAddBookModal(){
   document.getElementById('addBookModal').classList.add('show');
   document.getElementById('bookName').value = '';
+  document.getElementById('bookDate').value = '';
   const picker = document.getElementById('iconPicker');
   picker.innerHTML = ICONS.map(ico =>
     `<span style="font-size:32px;cursor:pointer;padding:4px;border-radius:8px;transition:.2s" onclick="selectIcon('${ico}')" class="ico-opt">${ico}</span>`
@@ -330,7 +334,8 @@ function selectIcon(ico){
 function saveBook(){
   const name = document.getElementById('bookName').value.trim();
   if(!name){showToast('请输入名称');return}
-  books.push({id:'book_'+(books.length+1)+'_'+Date.now(),name,icon:window.selectedIcon||'📖',records:[]});
+  const date = document.getElementById('bookDate').value;
+  books.push({id:'book_'+(books.length+1)+'_'+Date.now(),name,icon:window.selectedIcon||'📖',date:date||'',records:[]});
   saveBooks(); renderHome(); closeBookModal();
   showToast('✅ 已创建「'+name+'」');
 }
@@ -344,6 +349,7 @@ function openBook(id){
   document.getElementById('page-home').classList.remove('show');
   document.getElementById('page-book').classList.add('show');
   document.getElementById('bookTitle').textContent = b.icon+' '+b.name;
+  document.getElementById('bookDateLabel').textContent = b.date||'';
   renderLedger();
 }
 
@@ -491,6 +497,7 @@ function saveRenameBook(){
   b.name = name;
   saveBooks(); renderLedger(); closeRenameModal();
   document.getElementById('bookTitle').textContent = b.icon+' '+b.name;
+  document.getElementById('bookDateLabel').textContent = b.date||'';
   showToast('✅ 名称已修改为「'+name+'」');
 }
 
