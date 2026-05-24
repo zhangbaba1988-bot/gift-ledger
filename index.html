@@ -204,10 +204,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;backg
 <div class="modal" id="renameBookModal" onclick="if(event.target===this)closeRenameModal()">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <h3>✏️ 修改礼薄名称</h3>
-    <div class="sub">修改当前礼薄的名称</div>
-    <div class="t-label">新名称</div>
-    <input class="t-input" id="renameBookInput" placeholder="输入新名称" style="margin-bottom:16px">
+    <h3>✏️ 修改礼薄</h3>
+    <div class="sub">修改名称和日期</div>
+    <div class="t-label">名称</div>
+    <input class="t-input" id="renameBookInput" placeholder="输入名称" style="margin-bottom:6px">
+    <div class="t-label">日期</div>
+    <input class="t-input" id="renameBookDate" type="date" style="margin-bottom:16px">
     <button class="t-btn t-btn-pink" onclick="saveRenameBook()">💾 保存修改</button>
   </div>
 </div>
@@ -486,6 +488,7 @@ function openRenameBook(){
   const b = books.find(x=>x.id===currentBookId);
   if(!b)return;
   document.getElementById('renameBookInput').value = b.name;
+  document.getElementById('renameBookDate').value = b.date||'';
   document.getElementById('renameBookModal').classList.add('show');
 }
 function closeRenameModal(){document.getElementById('renameBookModal').classList.remove('show')}
@@ -494,11 +497,13 @@ function saveRenameBook(){
   if(!name){showToast('请输入名称');return}
   const b = books.find(x=>x.id===currentBookId);
   if(!b)return;
+  const date = document.getElementById('renameBookDate').value;
   b.name = name;
+  b.date = date||'';
   saveBooks(); renderLedger(); closeRenameModal();
   document.getElementById('bookTitle').textContent = b.icon+' '+b.name;
   document.getElementById('bookDateLabel').textContent = b.date||'';
-  showToast('✅ 名称已修改为「'+name+'」');
+  showToast('✅ 已更新');
 }
 
 // ====== 视图切换 ======
